@@ -13,10 +13,10 @@ exports.authMiddleware = (req, res, next) => {
   }
 };
 
-exports.captainMiddleware = (req, res, next) => {
-  if (req.user && req.user.role === 'captain') {
+exports.driverMiddleware = (req, res, next) => {
+  if (req.user && (req.user.role === 'driver' || req.user.role === 'captain')) {
     next();
   } else {
-    res.status(403).json({ message: 'Access denied: Captains only' });
+    res.status(403).json({ message: 'Access denied: Drivers only' });
   }
 };

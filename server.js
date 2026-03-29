@@ -36,7 +36,7 @@ const io = new Server(server, {
   }
 });
 
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
 app.use(express.json({ limit: '10kb' }));
 
 // io instance available in routes
@@ -44,7 +44,7 @@ app.set('io', io);
 
 // Routes
 app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/captains', require('./routes/captainRoutes'));
+app.use('/api/drivers', require('./routes/driverRoutes'));
 app.use('/api/rides', require('./routes/rideRoutes'));
 
 io.on('connection', (socket) => {

@@ -7,8 +7,13 @@ const userSchema = new mongoose.Schema({
   },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+  role: { type: String, enum: ['user', 'admin'], default: 'user' },
   socketId: { type: String },
-  walletBalance: { type: Number, default: 0 }
+  walletBalance: { type: Number, default: 0 },
+  documents: [{
+    fileName: { type: String },
+    fileId: { type: mongoose.Schema.Types.ObjectId }
+  }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);
