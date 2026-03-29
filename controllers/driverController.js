@@ -1,6 +1,8 @@
 const Driver = require('../models/Driver');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
+const { getBucket } = require('../config/gridfs');
 
 exports.registerDriver = async (req, res) => {
   try {
@@ -23,31 +25,28 @@ exports.loginDriver = async (req, res) => {
   try {
     const { email, password } = req.body;
     const driver = await Driver.findOne({ email });
-    if (!driver) return res.status(404).json({ message: 'Driver not found' });
+    if (!driver) return res.status(401).json({ message: 'Invalid credentials' });
 
     const isMatch = await bcrypt.compare(password, driver.password);
-    if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
 
     const token = jwt.sign({ id: driver._id, role: 'driver' }, process.env.JWT_SECRET || 'secret', { expiresIn: '24h' });
-    res.status(200).json({ token, driver: { id: driver._id, fullname: driver.fullname, email: driver.email, status: driver.status, isVerified: driver.isVerified } });
+    res.status(200).json({ token, driver: { id: driver._id, fullname: driver.fullname, email: driver.email, vehicle: driver.vehicle, isVerified: driver.isVerified } });
   } catch (error) {
     res.status(500).json({ message: 'Error logging in', error: error.message });
   }
 };
+
 exports.updateLocation = async (req, res) => {
   try {
     const { lat, lng } = req.body;
-    const driver = await Driver.findByIdAndUpdate(req.user.id, {
-      location: { lat, lng }
-    }, { new: true });
-
-    if (!driver) return res.status(404).json({ message: 'Driver not found' });
-
-    // Emit to socket room for real-time tracking (to be implemented more specifically in Phase 4)
+    const driver = await Driver.findByIdAndUpdate(req.user.id, { location: { lat, lng } }, { new: true });
+    
+    // Broadcast location update
     const io = req.app.get('io');
-    io.emit('driver_location_update', { driverId: driver._id, location: driver.location });
+    io.emit('driver_location_update', { driverId: driver._id, lat, lng });
 
-    res.status(200).json({ status: 'success', location: driver.location });
+    res.json({ message: 'Location updated', location: driver.location });
   } catch (error) {
     res.status(500).json({ message: 'Error updating location', error: error.message });
   }
@@ -96,9 +95,6 @@ exports.toggleStatus = async (req, res) => {
     res.status(500).json({ message: 'Error updating status', error: error.message });
   }
 };
-
-const mongoose = require('mongoose');
-const { getBucket } = require('../config/gridfs');
 
 exports.getPendingDrivers = async (req, res) => {
   try {

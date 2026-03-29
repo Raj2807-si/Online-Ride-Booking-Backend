@@ -5,10 +5,10 @@ const mapService = require('../services/mapService');
 
 exports.createRide = async (req, res) => {
   try {
-    const { pickup, destination, vehicleType } = req.body;
+    const { pickup, destination, pickupCoords, destinationCoords, vehicleType } = req.body;
     
-    // Get real distance and duration
-    const distData = await mapService.getDistanceTime(pickup, destination);
+    // Get real distance and duration (can handle strings or coords)
+    const distData = await mapService.getDistanceTime(pickupCoords || pickup, destinationCoords || destination);
     const distanceKm = distData.distance.value / 1000;
     const durationMs = distData.duration.value * 1000;
 

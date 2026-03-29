@@ -9,7 +9,7 @@ const driverSchema = new mongoose.Schema({
   password: { type: String, required: true },
   socketId: { type: String },
   status: { type: String, enum: ['active', 'inactive'], default: 'inactive' },
-  isVerified: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  isVerified: { type: Boolean, default: false },
   vehicle: {
     color: { type: String },
     plate: { type: String },
@@ -21,7 +21,11 @@ const driverSchema = new mongoose.Schema({
     lng: { type: Number }
   },
   walletBalance: { type: Number, default: 0 },
-  ratings: { type: Number, default: 0 }
+  ratings: { type: Number, default: 0 },
+  documents: [{
+    fileName: String,
+    fileId: String
+  }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Driver', driverSchema);

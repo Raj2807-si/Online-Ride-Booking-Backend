@@ -4,7 +4,7 @@ const axios = require('axios');
  * Calculates current fare based on distance (km) and time (minutes).
  */
 const getFare = async (distanceKm, durationMs) => {
-    if (!distanceKm || !durationMs) {
+    if (distanceKm === undefined || durationMs === undefined) {
         throw new Error('Distance and duration are required for fare calculation');
     }
 
@@ -38,37 +38,62 @@ const getFare = async (distanceKm, durationMs) => {
 };
 
 /**
- * Gets distance and duration using Google Distance Matrix API.
+ * Geocodes an address string to coordinates using Nominatim.
+ */
+const geocodeAddress = async (address) => {
+    try {
+        const response = await axios.get(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`, {
+            headers: { 'User-Agent': 'Tripzo-Ride-Booking-App' }
+        });
+        if (response.data && response.data.length > 0) {
+            return {
+                lat: parseFloat(response.data[0].lat),
+                lng: parseFloat(response.data[0].lon)
+            };
+        }
+        throw new Error('Address not found');
+    } catch (err) {
+        console.error('Geocoding error:', err.message);
+        throw err;
+    }
+}
+
+/**
+ * Gets distance and duration using OSRM (Open Source Routing Machine) API.
+ * Accepts either coordinate objects {lat, lng} or address strings.
  */
 const getDistanceTime = async (origin, destination) => {
-    if (!origin || !destination) {
-        throw new Error('Origin and destination are required');
+    let startCoords = origin;
+    let endCoords = destination;
+
+    // Geocode if strings are provided
+    if (typeof origin === 'string') startCoords = await geocodeAddress(origin);
+    if (typeof destination === 'string') endCoords = await geocodeAddress(destination);
+
+    if (!startCoords || !endCoords) {
+        throw new Error('Origin and destination coordinates are required');
     }
 
-    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-        // Return mock data for development if no API key is provided
-        return {
-            distance: { text: "5.2 km", value: 5200 },
-            duration: { text: "15 mins", value: 900 }
-        };
-    }
-
-    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origin)}&destinations=${encodeURIComponent(destination)}&key=${apiKey}`;
+    const url = `http://router.project-osrm.org/route/v1/driving/${startCoords.lng},${startCoords.lat};${endCoords.lng},${endCoords.lat}?overview=false`;
 
     try {
         const response = await axios.get(url);
-        if (response.data.status === 'OK') {
-            if (response.data.rows[0].elements[0].status === 'ZERO_RESULTS') {
-                throw new Error('No route found between coordinates');
-            }
-            return response.data.rows[0].elements[0];
+        if (response.data.code === 'Ok' && response.data.routes.length > 0) {
+            const route = response.data.routes[0];
+            return {
+                distance: { text: `${(route.distance / 1000).toFixed(1)} km`, value: route.distance },
+                duration: { text: `${Math.round(route.duration / 60)} mins`, value: Math.round(route.duration) }
+            };
         } else {
-            throw new Error('Unable to fetch distance and duration');
+            throw new Error('No route found between coordinates');
         }
     } catch (err) {
-        console.error(err);
-        throw err;
+        console.error('OSRM error:', err.message);
+        // Fallback to mock data if OSRM is down
+        return {
+            distance: { text: "5.0 km", value: 5000 },
+            duration: { text: "12 mins", value: 720 }
+        };
     }
 };
 

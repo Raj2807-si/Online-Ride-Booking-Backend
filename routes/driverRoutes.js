@@ -1,5 +1,7 @@
+const express = require('express');
+const router = express.Router();
+const driverController = require('../controllers/driverController');
 const { authMiddleware, driverMiddleware, adminMiddleware } = require('../middlewares/authMiddleware');
-
 const { upload } = require('../config/gridfs');
 
 router.post('/register', driverController.registerDriver);
