@@ -26,4 +26,14 @@ const storage = new GridFsStorage({
 
 const upload = multer({ storage });
 
-module.exports = upload;
+let bucket;
+mongoose.connection.on('open', () => {
+  bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+    bucketName: 'uploads'
+  });
+});
+
+module.exports = {
+  upload,
+  getBucket: () => bucket
+};

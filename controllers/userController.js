@@ -34,3 +34,45 @@ exports.loginUser = async (req, res) => {
     res.status(500).json({ message: 'Error logging in', error: error.message });
   }
 };
+const Transaction = require('../models/Transaction');
+
+exports.getWalletBalance = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    res.json({ balance: user.walletBalance || 0 });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching balance', error: error.message });
+  }
+};
+
+exports.topupWallet = async (req, res) => {
+  try {
+    const { amount, referenceId } = req.body;
+    const user = await User.findById(req.user.id);
+    
+    user.walletBalance += Number(amount);
+    await user.save();
+
+    const transaction = new Transaction({
+      userId: user._id,
+      amount,
+      transactionType: 'topup',
+      referenceId,
+      description: 'Wallet top-up via UPI'
+    });
+    await transaction.save();
+
+    res.json({ message: 'Top-up successful', balance: user.walletBalance });
+  } catch (error) {
+    res.status(500).json({ message: 'Error topping up wallet', error: error.message });
+  }
+};
+
+exports.getTransactions = async (req, res) => {
+  try {
+    const transactions = await Transaction.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    res.json(transactions);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching transactions', error: error.message });
+  }
+};

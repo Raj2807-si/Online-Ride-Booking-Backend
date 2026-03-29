@@ -46,10 +46,21 @@ app.set('io', io);
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/drivers', require('./routes/driverRoutes'));
 app.use('/api/rides', require('./routes/rideRoutes'));
+app.use('/api/vehicles', require('./routes/vehicleRoutes'));
 
 io.on('connection', (socket) => {
   console.log('New client connected:', socket.id);
   
+  socket.on('join_ride', (rideId) => {
+    socket.join(rideId);
+    console.log(`Socket ${socket.id} joined ride room: ${rideId}`);
+  });
+
+  socket.on('update_location', (data) => {
+    const { rideId, lat, lng } = data;
+    io.to(rideId).emit('ride_location_update', { lat, lng });
+  });
+
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
   });

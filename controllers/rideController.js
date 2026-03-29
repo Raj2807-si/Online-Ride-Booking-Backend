@@ -1,4 +1,6 @@
 const Ride = require('../models/Ride');
+const User = require('../models/User');
+const Driver = require('../models/Driver');
 const mapService = require('../services/mapService');
 
 exports.createRide = async (req, res) => {
@@ -13,6 +15,12 @@ exports.createRide = async (req, res) => {
     // Get all fares and choose based on requested vehicleType
     const allFares = await mapService.getFare(distanceKm, durationMs);
     const selectedFare = allFares[vehicleType] || allFares.car;
+
+    // Check Wallet Balance
+    const user = await User.findById(req.user.id);
+    if (!user.walletBalance || user.walletBalance < selectedFare) {
+      return res.status(400).json({ message: 'Insufficient balance. Please top-up your wallet.' });
+    }
 
     // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -46,7 +54,7 @@ exports.acceptRide = async (req, res) => {
     
     if (ride.status !== 'pending') return res.status(400).json({ message: 'Ride already accepted or cancelled' });
 
-    ride.captain = req.user.id;
+    ride.captain = req.user.id; // User ID from driverMiddleware auth
     ride.status = 'accepted';
     await ride.save();
 
@@ -57,5 +65,54 @@ exports.acceptRide = async (req, res) => {
     res.status(200).json(ride);
   } catch (error) {
     res.status(500).json({ message: 'Error accepting ride', error: error.message });
+  }
+};
+
+exports.completeRide = async (req, res) => {
+  try {
+    const { rideId } = req.params;
+    const ride = await Ride.findById(rideId);
+    if (!ride) return res.status(404).json({ message: 'Ride not found' });
+
+    if (ride.status !== 'accepted') return res.status(400).json({ message: 'Ride cannot be completed' });
+
+    ride.status = 'completed';
+    await ride.save();
+
+    // Update Wallet Balances (Deduct from User, Credit to Driver)
+    const user = await User.findById(ride.user);
+    const driver = await Driver.findById(ride.captain);
+
+    user.walletBalance -= ride.fare;
+    driver.walletBalance += ride.fare;
+
+    await user.save();
+    await driver.save();
+
+    // Notify user
+    const io = req.app.get('io');
+    io.emit(`ride_completed_${ride.user}`, ride);
+
+    res.status(200).json({ message: 'Ride completed successfully', ride });
+  } catch (error) {
+    res.status(500).json({ message: 'Error completing ride', error: error.message });
+  }
+};
+
+exports.cancelRide = async (req, res) => {
+  try {
+    const { rideId } = req.params;
+    const ride = await Ride.findById(rideId);
+    if (!ride) return res.status(404).json({ message: 'Ride not found' });
+
+    ride.status = 'cancelled';
+    await ride.save();
+
+    const io = req.app.get('io');
+    io.emit(`ride_cancelled_${ride.user}`, ride);
+
+    res.status(200).json({ message: 'Ride cancelled', ride });
+  } catch (error) {
+    res.status(500).json({ message: 'Error cancelling ride', error: error.message });
   }
 };
