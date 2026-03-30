@@ -68,13 +68,37 @@ exports.acceptRide = async (req, res) => {
   }
 };
 
+exports.startRide = async (req, res) => {
+  try {
+    const { rideId, otp } = req.body;
+    const ride = await Ride.findById(rideId).populate('user captain');
+    
+    if (!ride) return res.status(404).json({ message: 'Ride not found' });
+    if (ride.status !== 'accepted') return res.status(400).json({ message: 'Ride not accepted yet' });
+    if (ride.otp !== otp) return res.status(400).json({ message: 'Invalid OTP' });
+
+    ride.status = 'ongoing';
+    await ride.save();
+
+    // Notify user that ride has started
+    const io = req.app.get('io');
+    io.emit(`ride_started_${ride.user._id}`, ride);
+
+    res.status(200).json({ message: 'Ride started successfully', ride });
+  } catch (error) {
+    res.status(500).json({ message: 'Error starting ride', error: error.message });
+  }
+};
+
 exports.completeRide = async (req, res) => {
   try {
     const { rideId } = req.params;
     const ride = await Ride.findById(rideId);
     if (!ride) return res.status(404).json({ message: 'Ride not found' });
 
-    if (ride.status !== 'accepted') return res.status(400).json({ message: 'Ride cannot be completed' });
+    if (ride.status !== 'ongoing' && ride.status !== 'accepted') {
+      return res.status(400).json({ message: 'Ride cannot be completed from current state' });
+    }
 
     ride.status = 'completed';
     await ride.save();
@@ -83,11 +107,13 @@ exports.completeRide = async (req, res) => {
     const user = await User.findById(ride.user);
     const driver = await Driver.findById(ride.captain);
 
-    user.walletBalance -= ride.fare;
-    driver.walletBalance += ride.fare;
+    if (user && driver) {
+      user.walletBalance = (user.walletBalance || 0) - ride.fare;
+      driver.walletBalance = (driver.walletBalance || 0) + ride.fare;
 
-    await user.save();
-    await driver.save();
+      await user.save();
+      await driver.save();
+    }
 
     // Notify user
     const io = req.app.get('io');
