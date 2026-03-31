@@ -23,7 +23,8 @@ exports.registerDriver = async (req, res) => {
 
 exports.loginDriver = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
+    email = email.trim().toLowerCase();
     const driver = await Driver.findOne({ email });
     if (!driver) return res.status(401).json({ message: 'Invalid credentials' });
 
