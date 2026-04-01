@@ -17,7 +17,9 @@ const rideSchema = new mongoose.Schema({
   status: { type: String, enum: ['pending', 'accepted', 'ongoing', 'completed', 'cancelled'], default: 'pending' },
   duration: { type: Number }, // in seconds
   distance: { type: Number }, // in meters
-  otp: { type: String, required: true }
+  otp: { type: String, required: true },
+  paymentMethod: { type: String, enum: ['wallet', 'cash', 'card', 'upi'], default: 'wallet' },
+  paymentStatus: { type: String, enum: ['pending', 'paid'], default: 'pending' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Ride', rideSchema);

@@ -16,11 +16,7 @@ exports.createRide = async (req, res) => {
     const allFares = await mapService.getFare(distanceKm, durationMs);
     const selectedFare = allFares[vehicleType] || allFares.car;
 
-    // Check Wallet Balance
-    const user = await User.findById(req.user.id);
-    if (!user.walletBalance || user.walletBalance < selectedFare) {
-      return res.status(400).json({ message: 'Insufficient balance. Please top-up your wallet.' });
-    }
+    /* Removed initial balance check to allow "Connect First" flow */
 
     // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -103,25 +99,47 @@ exports.completeRide = async (req, res) => {
     ride.status = 'completed';
     await ride.save();
 
-    // Update Wallet Balances (Deduct from User, Credit to Driver)
-    const user = await User.findById(ride.user);
-    const driver = await Driver.findById(ride.captain);
-
-    if (user && driver) {
-      user.walletBalance = (user.walletBalance || 0) - ride.fare;
-      driver.walletBalance = (driver.walletBalance || 0) + ride.fare;
-
-      await user.save();
-      await driver.save();
-    }
-
-    // Notify user
+    // Notify user to start payment process
     const io = req.app.get('io');
     io.emit(`ride_completed_${ride.user}`, ride);
 
     res.status(200).json({ message: 'Ride completed successfully', ride });
   } catch (error) {
     res.status(500).json({ message: 'Error completing ride', error: error.message });
+  }
+};
+
+exports.processPayment = async (req, res) => {
+  try {
+    const { rideId, paymentMethod } = req.body;
+    const ride = await Ride.findById(rideId);
+    if (!ride) return res.status(404).json({ message: 'Ride not found' });
+    if (ride.paymentStatus === 'paid') return res.status(400).json({ message: 'Ride already paid' });
+
+    ride.paymentMethod = paymentMethod;
+    ride.paymentStatus = 'paid';
+    await ride.save();
+
+    if (paymentMethod === 'wallet') {
+      const user = await User.findById(ride.user);
+      const driver = await Driver.findById(ride.captain);
+
+      if (user && driver) {
+        user.walletBalance = (user.walletBalance || 0) - ride.fare;
+        driver.walletBalance = (driver.walletBalance || 0) + ride.fare;
+
+        await user.save();
+        await driver.save();
+      }
+    }
+
+    // Notify driver about payment confirmation
+    const io = req.app.get('io');
+    io.emit(`payment_confirmed_${ride.captain}`, { rideId, paymentMethod });
+
+    res.status(200).json({ message: 'Payment processed successfully', ride });
+  } catch (error) {
+    res.status(500).json({ message: 'Error processing payment', error: error.message });
   }
 };
 
