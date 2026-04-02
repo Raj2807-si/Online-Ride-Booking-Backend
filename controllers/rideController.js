@@ -172,6 +172,7 @@ exports.geocode = async (req, res) => {
         q,
         format: 'json',
         addressdetails: 1,
+        countrycodes: 'in',
         limit: req.query.limit || 5
       },
       headers: {
