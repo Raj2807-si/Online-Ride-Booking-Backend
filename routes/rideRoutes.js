@@ -9,5 +9,6 @@ router.post('/start', authMiddleware, driverMiddleware, rideController.startRide
 router.post('/complete/:rideId', authMiddleware, driverMiddleware, rideController.completeRide);
 router.post('/process-payment', authMiddleware, rideController.processPayment);
 router.post('/cancel/:rideId', authMiddleware, rideController.cancelRide);
+router.get('/geocode', authMiddleware, rideController.geocode);
 
 module.exports = router;

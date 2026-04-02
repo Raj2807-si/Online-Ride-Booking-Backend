@@ -2,6 +2,7 @@ const Ride = require('../models/Ride');
 const User = require('../models/User');
 const Driver = require('../models/Driver');
 const mapService = require('../services/mapService');
+const axios = require('axios');
 
 exports.createRide = async (req, res) => {
   try {
@@ -158,5 +159,29 @@ exports.cancelRide = async (req, res) => {
     res.status(200).json({ message: 'Ride cancelled', ride });
   } catch (error) {
     res.status(500).json({ message: 'Error cancelling ride', error: error.message });
+  }
+};
+
+exports.geocode = async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) return res.status(400).json({ message: 'Query parameter q is required' });
+
+    const response = await axios.get(`https://nominatim.openstreetmap.org/search`, {
+      params: {
+        q,
+        format: 'json',
+        addressdetails: 1,
+        limit: req.query.limit || 5
+      },
+      headers: {
+        'User-Agent': 'Tripzo-Ride-Booking-App'
+      }
+    });
+
+    res.json(response.data);
+  } catch (error) {
+    console.error('Geocoding proxy error:', error.message);
+    res.status(500).json({ message: 'Error fetching geocode data', error: error.message });
   }
 };
