@@ -226,3 +226,52 @@ exports.getCaptainHistory = async (req, res) => {
     res.status(500).json({ message: 'Error fetching captain history', error: error.message });
   }
 };
+
+exports.submitRating = async (req, res) => {
+  try {
+    const { rideId } = req.params;
+    const { rating, feedback } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ message: 'Invalid rating. Please provide a score between 1 and 5.' });
+    }
+
+    const ride = await Ride.findById(rideId);
+    if (!ride) return res.status(404).json({ message: 'Ride not found' });
+
+    // Security check: Only the rider who took the trip can rate it
+    if (ride.user.toString() !== req.user.id) {
+        return res.status(403).json({ message: 'Unauthorized to rate this ride' });
+    }
+
+    if (ride.status !== 'completed') {
+      return res.status(400).json({ message: 'Only completed rides can be rated' });
+    }
+
+    ride.rating = rating;
+    ride.feedback = feedback;
+    await ride.save();
+
+    // Update Driver's aggregate rating (simple average approximation for now)
+    if (ride.captain) {
+        const Driver = require('../models/Driver');
+        const driver = await Driver.findById(ride.captain);
+        if (driver) {
+            // Simple logic: if ratings is 0, set it to the rating. 
+            // In a production app, we'd store an array or count/sum.
+            // For this project, we'll simulate a weighted update.
+            if (driver.ratings === 0) {
+                driver.ratings = rating;
+            } else {
+                driver.ratings = (driver.ratings + rating) / 2;
+            }
+            await driver.save();
+        }
+    }
+
+    res.status(200).json({ message: 'Rating submitted successfully', ride });
+  } catch (error) {
+    console.error('SubmitRating error:', error);
+    res.status(500).json({ message: 'Error submitting rating', error: error.message });
+  }
+};
