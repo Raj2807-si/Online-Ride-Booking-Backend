@@ -55,11 +55,14 @@ exports.acceptRide = async (req, res) => {
     ride.status = 'accepted';
     await ride.save();
 
+    // Populate for the response
+    const updatedRide = await Ride.findById(rideId).populate('captain', 'fullname vehicle');
+
     // Notify user that ride is accepted
     const io = req.app.get('io');
-    io.emit(`ride_accepted_${ride.user}`, ride);
+    io.emit(`ride_accepted_${ride.user}`, updatedRide);
 
-    res.status(200).json(ride);
+    res.status(200).json(updatedRide);
   } catch (error) {
     res.status(500).json({ message: 'Error accepting ride', error: error.message });
   }
@@ -71,7 +74,19 @@ exports.startRide = async (req, res) => {
     const ride = await Ride.findById(rideId).populate('user captain');
     
     if (!ride) return res.status(404).json({ message: 'Ride not found' });
-    if (ride.status !== 'accepted') return res.status(400).json({ message: 'Ride not accepted yet' });
+    
+    // Idempotent: If it's already ongoing, just return success
+    if (ride.status === 'ongoing') {
+      return res.status(200).json({ message: 'Ride is already in progress', ride });
+    }
+
+    if (ride.status !== 'accepted') {
+      return res.status(400).json({ 
+        message: `Ride enrollment failed: Current status is ${ride.status}. Must be ACCEPTED before starting.`,
+        currentStatus: ride.status 
+      });
+    }
+
     if (ride.otp !== otp) return res.status(400).json({ message: 'Invalid OTP' });
 
     ride.status = 'ongoing';
@@ -83,7 +98,8 @@ exports.startRide = async (req, res) => {
 
     res.status(200).json({ message: 'Ride started successfully', ride });
   } catch (error) {
-    res.status(500).json({ message: 'Error starting ride', error: error.message });
+    console.error('StartRide error:', error);
+    res.status(500).json({ message: 'Server error starting trip', error: error.message });
   }
 };
 
@@ -184,5 +200,29 @@ exports.geocode = async (req, res) => {
   } catch (error) {
     console.error('Geocoding proxy error:', error.message);
     res.status(500).json({ message: 'Error fetching geocode data', error: error.message });
+  }
+};
+
+exports.getRiderHistory = async (req, res) => {
+  try {
+    const rides = await Ride.find({ user: req.user.id })
+      .populate('captain', 'fullname email vehicle')
+      .sort({ createdAt: -1 })
+      .limit(50);
+    res.json(rides);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching rider history', error: error.message });
+  }
+};
+
+exports.getCaptainHistory = async (req, res) => {
+  try {
+    const rides = await Ride.find({ captain: req.user.id })
+      .populate('user', 'fullname email')
+      .sort({ createdAt: -1 })
+      .limit(50);
+    res.json(rides);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching captain history', error: error.message });
   }
 };

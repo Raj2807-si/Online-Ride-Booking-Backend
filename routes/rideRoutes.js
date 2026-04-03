@@ -10,5 +10,7 @@ router.post('/complete/:rideId', authMiddleware, driverMiddleware, rideControlle
 router.post('/process-payment', authMiddleware, rideController.processPayment);
 router.post('/cancel/:rideId', authMiddleware, rideController.cancelRide);
 router.get('/geocode', authMiddleware, rideController.geocode);
+router.get('/history/rider', authMiddleware, rideController.getRiderHistory);
+router.get('/history/captain', authMiddleware, driverMiddleware, rideController.getCaptainHistory);
 
 module.exports = router;
