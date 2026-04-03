@@ -12,13 +12,37 @@ require('dotenv').config();
 const app = express();
 const server = http.createServer(app);
 
+// CORS Configuration
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:5000',
+  'https://online-ride-booking-frontend.vercel.app'
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin) || (origin && origin.endsWith('.vercel.app'))) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  optionsSuccessStatus: 200
+}));
+
 // Security Headers
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false,
+}));
 
 // Rate Limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 mins
-  max: 100,
+  windowMs: 15 * 60 * 1000, 
+  max: 1000, 
   message: 'Too many requests from this IP'
 });
 app.use('/api', limiter);
@@ -29,13 +53,6 @@ app.use(mongoSanitize());
 // Prevent Parameter Pollution
 app.use(hpp());
 
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  process.env.FRONTEND_URL,
-  'https://online-ride-booking-frontend.vercel.app' // Fallback for common Vercel naming if unset
-].filter(Boolean);
-
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
@@ -43,16 +60,6 @@ const io = new Server(server, {
     credentials: true
   }
 });
-app.use(cors({ 
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true 
-}));
 app.use(express.json({ limit: '10kb' }));
 
 // io instance available in routes
