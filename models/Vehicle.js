@@ -6,7 +6,7 @@ const vehicleSchema = new mongoose.Schema({
   vehicleType: { type: String, enum: ['mini', 'sedan', 'suv', 'motorcycle', 'auto'], required: true },
   plate: { type: String, required: true, unique: true },
   color: { type: String },
-  status: { type: String, enum: ['available', 'rented', 'maintenance'], default: 'available' },
+  status: { type: String, enum: ['available', 'rented', 'booked', 'maintenance'], default: 'available' },
   hourlyRate: { type: Number, required: true },
   dailyRate: { type: Number, required: true },
   location: {

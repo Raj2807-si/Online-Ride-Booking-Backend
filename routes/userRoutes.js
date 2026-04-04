@@ -8,5 +8,6 @@ router.post('/login', userController.loginUser);
 router.get('/wallet/balance', authMiddleware, userController.getWalletBalance);
 router.post('/wallet/topup', authMiddleware, userController.topupWallet);
 router.get('/wallet/transactions', authMiddleware, userController.getTransactions);
+router.put('/profile', authMiddleware, userController.updateProfile);
 
 module.exports = router;

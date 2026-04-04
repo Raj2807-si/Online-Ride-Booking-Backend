@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema({
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
   socketId: { type: String },
   walletBalance: { type: Number, default: 0 },
+  licenseNumber: { type: String },
   documents: [{
     fileName: { type: String },
     fileId: { type: mongoose.Schema.Types.ObjectId }
