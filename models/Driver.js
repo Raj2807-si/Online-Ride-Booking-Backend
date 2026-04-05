@@ -10,6 +10,8 @@ const driverSchema = new mongoose.Schema({
   socketId: { type: String },
   status: { type: String, enum: ['active', 'inactive'], default: 'inactive' },
   isVerified: { type: Boolean, default: false },
+  serviceType: { type: String, enum: ['self-driving', 'with-driver'], default: 'with-driver' },
+  currentLocation: { type: String },
   vehicle: {
     color: { type: String },
     plate: { type: String },

@@ -1,6 +1,7 @@
 const Vehicle = require('../models/Vehicle');
 const User = require('../models/User');
 const Rental = require('../models/Rental');
+const Driver = require('../models/Driver');
 
 exports.getAllVehicles = async (req, res) => {
   try {
@@ -23,7 +24,7 @@ exports.getVehicleById = async (req, res) => {
 
 exports.bookVehicle = async (req, res) => {
   try {
-    const { vehicleId, duration, durationType } = req.body;
+    const { vehicleId, duration, durationType, paymentMethod } = req.body;
     const currentUser = await User.findById(req.user.id);
 
     if (!currentUser.licenseNumber) {
@@ -37,9 +38,11 @@ exports.bookVehicle = async (req, res) => {
 
     const price = durationType === 'daily' ? vehicle.dailyRate * duration : vehicle.hourlyRate * duration;
 
-    // Check Wallet Balance
-    if (!currentUser.walletBalance || currentUser.walletBalance < price) {
-      return res.status(400).json({ message: 'Insufficient balance. Please top-up your wallet.' });
+    // Check payment method
+    if (!paymentMethod || paymentMethod === 'wallet') {
+      if (!currentUser.walletBalance || currentUser.walletBalance < price) {
+        return res.status(400).json({ message: 'Insufficient balance. Please top-up your wallet or use another payment method.' });
+      }
     }
 
     // Create Rental Record (Pending Verification)
@@ -49,13 +52,15 @@ exports.bookVehicle = async (req, res) => {
         duration,
         durationType,
         totalCost: price,
-        status: 'pending'
+        status: 'pending' // Maybe store paymentMethod if model supported, but for now we skip
     });
     await rental.save();
 
-    // Deduct from wallet
-    currentUser.walletBalance -= price;
-    await currentUser.save();
+    // Deduct from wallet only if wallet was used
+    if (!paymentMethod || paymentMethod === 'wallet') {
+      currentUser.walletBalance -= price;
+      await currentUser.save();
+    }
 
     // Update vehicle status temporarily to 'booked'
     vehicle.status = 'booked';
@@ -202,4 +207,24 @@ exports.addVehicle = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Error adding vehicle', error: error.message });
   }
+};
+
+exports.getDashboardStats = async (req, res) => {
+    try {
+        const completedRentals = await Rental.find({ status: 'completed' });
+        const totalRevenue = completedRentals.reduce((acc, r) => acc + r.totalCost, 0);
+        
+        const pendingDriversCount = await Driver.countDocuments({ isVerified: false });
+        const pendingRentalsCount = await Rental.countDocuments({ status: 'pending' });
+        const totalFleetCount = await Vehicle.countDocuments({});
+
+        res.json({
+            totalRevenue,
+            pendingDriversCount,
+            pendingRentalsCount,
+            totalFleetCount
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching stats', error: error.message });
+    }
 };

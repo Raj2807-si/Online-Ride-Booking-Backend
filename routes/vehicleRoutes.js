@@ -10,6 +10,7 @@ router.post('/rentals/approve/:id', authMiddleware, adminMiddleware, vehicleCont
 router.post('/rentals/reject/:id', authMiddleware, adminMiddleware, vehicleController.rejectRental);
 router.post('/rentals/cancel/:id', authMiddleware, vehicleController.cancelRental);
 router.post('/rentals/complete/:id', authMiddleware, vehicleController.completeRental);
+router.get('/rentals/stats', authMiddleware, adminMiddleware, vehicleController.getDashboardStats);
 router.get('/:id', vehicleController.getVehicleById);
 router.post('/book', authMiddleware, vehicleController.bookVehicle);
 router.post('/add', authMiddleware, adminMiddleware, vehicleController.addVehicle);

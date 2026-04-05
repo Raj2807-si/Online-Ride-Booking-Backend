@@ -13,6 +13,8 @@ const vehicleSchema = new mongoose.Schema({
     lat: { type: Number },
     lng: { type: Number }
   },
+  address: { type: String, default: 'Tripzo Hub, Main Square' },
+  contactNumber: { type: String, default: '+91 99999 88888' },
   image: { type: String } // URL or file reference
 }, { timestamps: true });
 

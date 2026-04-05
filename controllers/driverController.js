@@ -6,12 +6,12 @@ const { getBucket } = require('../config/gridfs');
 
 exports.registerDriver = async (req, res) => {
   try {
-    const { fullname, email, password, vehicle } = req.body;
+    const { fullname, email, password, vehicle, serviceType, currentLocation } = req.body;
     const existingDriver = await Driver.findOne({ email });
     if (existingDriver) return res.status(400).json({ message: 'Driver already exists' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const driver = new Driver({ fullname, email, password: hashedPassword, vehicle });
+    const driver = new Driver({ fullname, email, password: hashedPassword, vehicle, serviceType, currentLocation });
     await driver.save();
 
     const token = jwt.sign({ id: driver._id, role: 'driver' }, process.env.JWT_SECRET || 'secret', { expiresIn: '24h' });
